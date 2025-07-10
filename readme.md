@@ -1,4 +1,6 @@
-<img width="1877" height="812" alt="Screenshot 2025-07-10 191458" src="https://github.com/user-attachments/assets/989cdb27-1157-48bf-8f8a-872dfcf0b452" /># YouTube Analytics App
+<img width="1877" height="812" alt="Screenshot 2025-07-10 191458" src="https://github.com/user-attachments/assets/989cdb27-1157-48bf-8f8a-872dfcf0b452" />
+
+# YouTube Analytics App
 
 A comprehensive full-stack YouTube analytics dashboard built with React.js, Tailwind CSS, and FastAPI. Analyze YouTube channels and videos with advanced metrics, sentiment analysis, keyword extraction, and toxicity detection.
 
