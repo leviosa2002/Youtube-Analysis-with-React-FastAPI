@@ -1,4 +1,4 @@
-# YouTube Analytics App
+<img width="1877" height="812" alt="Screenshot 2025-07-10 191458" src="https://github.com/user-attachments/assets/989cdb27-1157-48bf-8f8a-872dfcf0b452" /># YouTube Analytics App
 
 A comprehensive full-stack YouTube analytics dashboard built with React.js, Tailwind CSS, and FastAPI. Analyze YouTube channels and videos with advanced metrics, sentiment analysis, keyword extraction, and toxicity detection.
 
@@ -324,6 +324,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - 💡 **Feature Requests**: Suggest improvements via GitHub issues
 - 💬 **Discussions**: Use GitHub Discussions for questions
 
----
+## Some Images from the Project
+<img width="1872" height="715" alt="Screenshot 2025-07-10 191429" src="https://github.com/user-attachments/assets/1f595522-2503-4413-ad07-9473b66dc17a" />
+<img width="1870" height="802" alt="Screenshot 2025-07-10 191347" src="https://github.com/user-attachments/assets/0f612489-3e43-472f-8d31-5931514d7e96" />
+<img width="1889" height="811" alt="Screenshot 2025-07-10 191242" src="https://github.com/user-attachments/assets/838bb00d-7151-4381-bfde-2e3e0ce7c661" />
+<img width="1885" height="641" alt="Screenshot 2025-07-10 191151" src="https://github.com/user-attachments/assets/f87520a6-2d6e-4243-9f3b-e166ccfd8804" />
+<img width="1876" height="710" alt="Screenshot 2025-07-10 191135" src="https://github.com/user-attachments/assets/a268fd80-b9a6-49b8-8bd7-1c4369e362c0" />
+<img width="1918" height="681" alt="Screenshot 2025-07-10 191120" src="https://github.com/user-attachments/assets/01e534fc-1d68-496a-aa2e-c37fda2f20fd" />
+<img width="1892" height="832" alt="Screenshot 2025-07-10 191050" src="https://github.com/user-attachments/assets/347cf917-239a-49bf-b741-6e17bf4dc146" />
+<img width="1858" height="678" alt="Screenshot 2025-07-10 191514" src="https://github.com/user-attachments/assets/fccbe8b7-c033-4d1d-bd7b-9d0be0ec0f5b" />
+
 
 **Built with ❤️ for YouTube content creators and analysts**
