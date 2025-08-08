@@ -18,7 +18,14 @@ import {
   Frown,
   Meh,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
+  Star,
+  Target,
+  Activity,
+  Zap
 } from 'lucide-react'
 
 import { useVideoData } from '../hooks/useVideoData'
@@ -114,6 +121,11 @@ const VideoPage = () => {
       case 'toxicity':
         if (videoData.comment_analysis?.toxicity_analysis) {
           exportVideoData.toxicityAnalysis(videoData.comment_analysis.toxicity_analysis, videoData.video_info.id)
+        }
+        break
+      case 'performance':
+        if (videoData.performance_insights) {
+          exportVideoData.performanceInsights(videoData.performance_insights, videoData.video_info.id)
         }
         break
       default:
@@ -310,7 +322,10 @@ const VideoPage = () => {
 
           {/* Performance Insights */}
           {videoData.performance_insights && (
-            <PerformanceInsights insights={videoData.performance_insights} />
+            <PerformanceInsights 
+              insights={videoData.performance_insights}
+              onExport={() => handleExportSection('performance')}
+            />
           )}
         </div>
       )}
@@ -468,367 +483,6 @@ const VideoMetrics = ({ video, engagement }) => {
   )
 }
 
-// Comment Analysis Component
-const CommentAnalysis = ({ analysis, videoId, onExportSentiment, onExportToxicity }) => {
-  const [showAllToxicComments, setShowAllToxicComments] = useState(false);
-  const [showAllKeywords, setShowAllKeywords] = useState(false);
-
-  // State for showing/hiding comments by sentiment type
-  const [showAllPositiveComments, setShowAllPositiveComments] = useState(false);
-  const [showAllNeutralComments, setShowAllNeutralComments] = useState(false);
-  const [showAllNegativeComments, setShowAllNegativeComments] = useState(false);
-
-  // Directly filter toxic comments to only show those with score > 0.6
-  const highToxicComments = analysis.toxicity_analysis?.most_toxic_comments?.filter(
-    comment => comment.toxicity_score > 0.7
-  ) || [];
-
-  const displayedToxicComments = showAllToxicComments
-    ? highToxicComments
-    : highToxicComments.slice(0, 5);
-
-  const displayedKeywords = showAllKeywords
-    ? analysis.keywords
-    : analysis.keywords?.slice(0, 10); // Display top 10 keywords initially
-
-  // Access sentiment-specific comments from the new structure
-  const topPositiveComments = analysis.sentiment_analysis?.top_positive_comments || [];
-  const topNegativeComments = analysis.sentiment_analysis?.top_negative_comments || [];
-
-  // Filter for top neutral comments from all_comments_sentiment
-  // This assumes 'all_comments_sentiment' is available and each comment has 'sentiment_label' and 'sentiment_score'
-  const allComments = analysis.sentiment_analysis?.all_comments_sentiment || [];
-  const topNeutralComments = allComments
-    .filter(comment => comment.sentiment_label === 'neutral')
-    .sort((a, b) => b.sentiment_score - a.sentiment_score) // Sort by score (descending)
-    .slice(0, 10); // Get top 10 neutral comments, adjust as needed
-
-  const displayedPositiveComments = showAllPositiveComments
-    ? topPositiveComments
-    : topPositiveComments.slice(0, 5);
-
-  const displayedNeutralComments = showAllNeutralComments
-    ? topNeutralComments
-    : topNeutralComments.slice(0, 5);
-
-  const displayedNegativeComments = showAllNegativeComments
-    ? topNegativeComments
-    : topNegativeComments.slice(0, 5);
-
-  // --- Helper Component for Comment Lists ---
-  const CommentList = ({ title, comments, sentimentType, videoId, showAllState, setShowAllState }) => {
-    const iconMap = {
-      positive: <Smile className="w-4 h-4 mr-2 text-green-600" />,
-      neutral: <Meh className="w-4 h-4 mr-2 text-gray-600" />,
-      negative: <Frown className="w-4 h-4 mr-2 text-red-600" />
-    };
-
-    const borderColorMap = {
-      positive: 'border-green-100',
-      neutral: 'border-gray-100',
-      negative: 'border-red-100'
-    };
-
-    if (!comments || comments.length === 0) {
-      return null;
-    }
-
-    return (
-      <div className="mt-6">
-        <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
-          {iconMap[sentimentType]} {title}
-        </h4>
-        <ul className="space-y-3">
-          {comments.map((comment, index) => (
-            <li key={index} className={`p-3 bg-white border ${borderColorMap[sentimentType]} rounded-lg shadow-sm`}>
-              <p className="text-sm text-gray-800 line-clamp-2">{comment.text}</p>
-              <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
-                <span>By: {comment.author}</span>
-                {comment.comment_id && (
-                  <a
-                    href={`https://www.youtube.com/watch?v=${videoId}&lc=${comment.comment_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-youtube-red hover:underline"
-                  >
-                    View Comment <ExternalLink className="inline-block w-3 h-3 ml-1" />
-                  </a>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-        {comments.length > 5 && ( // Only show "Show All" if there are more than 5 comments
-          <button
-            onClick={() => setShowAllState(!showAllState)}
-            className="mt-3 text-sm text-youtube-red hover:underline flex items-center"
-          >
-            {showAllState ? (
-              <>
-                <ChevronUp className="w-4 h-4 mr-1" /> Show Less
-              </>
-            ) : (
-              <>
-                <ChevronDown className="w-4 h-4 mr-1" /> Show All ({comments.length})
-              </>
-            )}
-          </button>
-        )}
-      </div>
-    );
-  };
-  // --- End Helper Component ---
-
-  return (
-    <div className="space-y-6">
-      <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Comment Analysis</h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="text-center p-4 bg-gray-50 rounded-lg">
-            <MessageSquare className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-gray-900">{formatNumber(analysis?.total_comments)}</p>
-            <p className="text-sm text-gray-600">Total Comments</p>
-          </div>
-
-          <div className="text-center p-4 bg-gray-50 rounded-lg">
-            <Eye className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-gray-900">{formatNumber(analysis?.analyzed_comments)}</p>
-            <p className="text-sm text-gray-600">Analyzed</p>
-          </div>
-
-          <div className="text-center p-4 bg-gray-50 rounded-lg">
-            <TrendingUp className="w-8 h-8 text-green-600 mx-auto mb-2" />
-            <p className="text-2xl font-bold text-gray-900">
-              {((analysis?.analyzed_comments ?? 0) / Math.max(1, analysis?.total_comments ?? 1) * 100).toFixed(1)}%
-            </p>
-            <p className="text-sm text-gray-600">Coverage</p>
-          </div>
-        </div>
-
-        {/* Sentiment Analysis */}
-        {analysis.sentiment_scores && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-md font-medium text-gray-900">Sentiment Distribution</h4>
-                <button onClick={onExportSentiment} className="btn-secondary text-xs">
-                  <Download className="w-3 h-3 mr-1" />
-                  Export
-                </button>
-              </div>
-              <SentimentPieChart
-                data={analysis.sentiment_distribution}
-                title=""
-              />
-            </div>
-
-            <div>
-              <h4 className="text-md font-medium text-gray-900 mb-4">Sentiment Metrics</h4>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <Smile className="w-5 h-5 text-green-600" />
-                    <span className="text-sm font-medium text-gray-900">Positive</span>
-                  </div>
-                  <span className="text-sm font-bold text-green-600">
-                    {((analysis.sentiment_distribution?.positive ?? 0) / Math.max(1, analysis?.analyzed_comments ?? 1) * 100).toFixed(1)}%
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <Meh className="w-5 h-5 text-gray-600" />
-                    <span className="text-sm font-medium text-gray-900">Neutral</span>
-                  </div>
-                  <span className="text-sm font-bold text-gray-600">
-                    {((analysis.sentiment_distribution?.neutral ?? 0) / Math.max(1, analysis?.analyzed_comments ?? 1) * 100).toFixed(1)}%
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <Frown className="w-5 h-5 text-red-600" />
-                    <span className="text-sm font-medium text-gray-900">Negative</span>
-                  </div>
-                  <span className="text-sm font-bold text-red-600">
-                    {((analysis.sentiment_distribution?.negative ?? 0) / Math.max(1, analysis?.analyzed_comments ?? 1) * 100).toFixed(1)}%
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* --- Top Comments by Sentiment --- */}
-        {analysis.sentiment_analysis && (
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Comments by Sentiment</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <CommentList
-                title="Top Positive Comments"
-                comments={displayedPositiveComments}
-                sentimentType="positive"
-                videoId={videoId}
-                showAllState={showAllPositiveComments}
-                setShowAllState={setShowAllPositiveComments}
-              />
-              <CommentList
-                title="Top Neutral Comments"
-                comments={displayedNeutralComments}
-                sentimentType="neutral"
-                videoId={videoId}
-                showAllState={showAllNeutralComments}
-                setShowAllState={setShowAllNeutralComments}
-              />
-              <CommentList
-                title="Top Negative Comments"
-                comments={displayedNegativeComments}
-                sentimentType="negative"
-                videoId={videoId}
-                showAllState={showAllNegativeComments}
-                setShowAllState={setShowAllNegativeComments}
-              />
-            </div>
-          </div>
-        )}
-        {/* --- End Top Comments by Sentiment --- */}
-
-
-        {/* Toxicity Analysis */}
-        {analysis.toxicity_analysis && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8 pt-6 border-t border-gray-200">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-md font-medium text-gray-900">Toxicity Analysis</h4>
-                <button onClick={onExportToxicity} className="btn-secondary text-xs">
-                  <Download className="w-3 h-3 mr-1" />
-                  Export
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <AlertTriangle className="w-5 h-5 text-red-600" />
-                    <span className="text-sm font-medium text-gray-900">Toxic Comments</span>
-                  </div>
-                  <span className="text-sm font-bold text-red-600">
-                    {(analysis.toxicity_analysis?.toxic_comments_count ?? 0)} (
-                    {(analysis.toxicity_analysis?.toxicity_rate ?? 0).toFixed(1)}%)
-                  </span>
-                </div>
-
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-900">Community Health</span>
-                    <span className={`text-sm font-bold ${
-                      (analysis.toxicity_analysis?.community_health_score?.score ?? 0) >= 80 ? 'text-green-600' :
-                      (analysis.toxicity_analysis?.community_health_score?.score ?? 0) >= 60 ? 'text-yellow-600' :
-                      'text-red-600'
-                    }`}>
-                      {(analysis.toxicity_analysis?.community_health_score?.score ?? 0).toFixed(1)}/100
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-600">
-                    {analysis.toxicity_analysis?.community_health_score?.level ?? 'N/A'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Most Toxic Comments */}
-              {highToxicComments.length > 0 && (
-                <div className="mt-6">
-                  <h4 className="text-md font-medium text-gray-900 mb-3">
-                    Most Toxic Comments
-                  </h4>
-                  <ul className="space-y-3">
-                    {displayedToxicComments.map((comment, index) => (
-                      <li key={index} className="p-3 bg-white border border-red-100 rounded-lg shadow-sm">
-                        <p className="text-sm text-gray-800 line-clamp-2">{comment.text}</p>
-                        <div className="flex justify-between items-center mt-2 text-xs text-gray-500">
-                          <span>By: {comment.author}</span>
-                          {comment.comment_id && (
-                            <a
-                              href={`https://www.youtube.com/watch?v=${videoId}&lc=${comment.comment_id}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-youtube-red hover:underline"
-                            >
-                              View Comment <ExternalLink className="inline-block w-3 h-3 ml-1" />
-                            </a>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                  {highToxicComments.length > 5 && (
-                    <button
-                      onClick={() => setShowAllToxicComments(!showAllToxicComments)}
-                      className="mt-3 text-sm text-youtube-red hover:underline flex items-center"
-                    >
-                      {showAllToxicComments ? (
-                        <>
-                          <ChevronUp className="w-4 h-4 mr-1" /> Show Less
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown className="w-4 h-4 mr-1" /> Show All ({highToxicComments.length})
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Keywords Word Cloud and List */}
-            {analysis.keywords && analysis.keywords.length > 0 && (
-              <div>
-                <h4 className="text-md font-medium text-gray-900 mb-4">Comment Keywords</h4>
-                <KeywordWordCloud
-                  keywords={analysis.keywords}
-                  title=""
-                  height={200}
-                />
-                <div className="mt-6">
-                  <h5 className="text-sm font-medium text-gray-900 mb-3">Top Keywords List</h5>
-                  <ul className="space-y-2 text-sm text-gray-700">
-                    {displayedKeywords.map((keyword, index) => (
-                      <li key={index} className="flex justify-between items-center border-b border-gray-100 pb-2 last:border-b-0">
-                        <span>{keyword.keyword}</span>
-                        <span className="text-xs text-gray-500">
-                          Relevance: {keyword.relevance_score.toFixed(2)} | Occurrences: {keyword.occurrence_count}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  {analysis.keywords.length > 10 && (
-                    <button
-                      onClick={() => setShowAllKeywords(!showAllKeywords)}
-                      className="mt-3 text-sm text-youtube-red hover:underline flex items-center"
-                    >
-                      {showAllKeywords ? (
-                        <>
-                          <ChevronUp className="w-4 h-4 mr-1" /> Show Less
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown className="w-4 h-4 mr-1" /> Show All ({analysis.keywords.length})
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 // Performance Insights Component
 const PerformanceInsights = ({ insights }) => (
   <div className="card">
@@ -869,5 +523,586 @@ const PerformanceInsights = ({ insights }) => (
     )}
   </div>
 )
+
+// Pagination Component
+const Pagination = ({ currentPage, totalPages, onPageChange, totalItems, itemsPerPage }) => {
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 1; i <= 4; i++) {
+          pages.push(i);
+        }
+        pages.push('...');
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1);
+        pages.push('...');
+        for (let i = totalPages - 3; i <= totalPages; i++) {
+          pages.push(i);
+        }
+      } else {
+        pages.push(1);
+        pages.push('...');
+        for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+          pages.push(i);
+        }
+        pages.push('...');
+        pages.push(totalPages);
+      }
+    }
+    
+    return pages;
+  };
+
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+      <div className="flex flex-1 justify-between sm:hidden">
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Previous
+        </button>
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Next
+        </button>
+      </div>
+      <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm text-gray-700">
+            Showing <span className="font-medium">{startItem}</span> to{' '}
+            <span className="font-medium">{endItem}</span> of{' '}
+            <span className="font-medium">{totalItems}</span> results
+          </p>
+        </div>
+        <div>
+          <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+            <button
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="sr-only">Previous</span>
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            {getPageNumbers().map((page, index) => (
+              <React.Fragment key={index}>
+                {page === '...' ? (
+                  <span className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300 focus:outline-offset-0">
+                    <MoreHorizontal className="h-5 w-5" />
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => onPageChange(page)}
+                    className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 ${
+                      currentPage === page
+                        ? 'z-10 bg-youtube-red text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-youtube-red'
+                        : 'text-gray-900'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                )}
+              </React.Fragment>
+            ))}
+            <button
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="sr-only">Next</span>
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </nav>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Enhanced Comment Analysis Component with Pagination
+const CommentAnalysis = ({ analysis, videoId, onExportSentiment, onExportToxicity }) => {
+  // Pagination states for different comment sections
+  const [toxicCommentsPage, setToxicCommentsPage] = useState(1);
+  const [positiveCommentsPage, setPositiveCommentsPage] = useState(1);
+  const [neutralCommentsPage, setNeutralCommentsPage] = useState(1);
+  const [negativeCommentsPage, setNegativeCommentsPage] = useState(1);
+  const [allCommentsPage, setAllCommentsPage] = useState(1);
+  const [keywordsPage, setKeywordsPage] = useState(1);
+  
+  // Items per page
+  const commentsPerPage = 10;
+  const keywordsPerPage = 15;
+
+  // State for showing different comment sections
+  const [activeTab, setActiveTab] = useState('sentiment');
+
+  // Filter and prepare data
+  const highToxicComments = analysis.toxicity_analysis?.most_toxic_comments?.filter(
+    comment => comment.toxicity_score > 0.6
+  ) || [];
+
+  // Access sentiment-specific comments
+  const topPositiveComments = analysis.sentiment_analysis?.top_positive_comments || [];
+  const topNegativeComments = analysis.sentiment_analysis?.top_negative_comments || [];
+  
+  // Filter for neutral comments
+  const allComments = analysis.sentiment_analysis?.all_comments_sentiment || [];
+  const topNeutralComments = allComments
+    .filter(comment => comment.sentiment_label === 'neutral')
+    .sort((a, b) => b.sentiment_score - a.sentiment_score);
+
+  // Pagination calculations
+  const getTotalPages = (items, itemsPerPage) => Math.ceil(items.length / itemsPerPage);
+  const getPaginatedItems = (items, page, itemsPerPage) => {
+    const startIndex = (page - 1) * itemsPerPage;
+    return items.slice(startIndex, startIndex + itemsPerPage);
+  };
+
+  // Comment List Component with Pagination
+  const PaginatedCommentList = ({ 
+    title, 
+    comments, 
+    sentimentType, 
+    videoId, 
+    currentPage, 
+    onPageChange,
+    totalItems 
+  }) => {
+    const iconMap = {
+      positive: <Smile className="w-4 h-4 mr-2 text-green-600" />,
+      neutral: <Meh className="w-4 h-4 mr-2 text-gray-600" />,
+      negative: <Frown className="w-4 h-4 mr-2 text-red-600" />,
+      toxic: <AlertTriangle className="w-4 h-4 mr-2 text-red-600" />
+    };
+
+    const borderColorMap = {
+      positive: 'border-green-100',
+      neutral: 'border-gray-100',
+      negative: 'border-red-100',
+      toxic: 'border-red-200'
+    };
+
+    if (!comments || comments.length === 0) {
+      return (
+        <div className="text-center py-8 text-gray-500">
+          <MessageSquare className="w-12 h-12 mx-auto mb-2 opacity-50" />
+          <p>No {sentimentType} comments found</p>
+        </div>
+      );
+    }
+
+    const totalPages = getTotalPages(comments, commentsPerPage);
+    const displayedComments = getPaginatedItems(comments, currentPage, commentsPerPage);
+
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="text-md font-medium text-gray-900 flex items-center">
+            {iconMap[sentimentType]} {title} ({formatNumber(totalItems || comments.length)})
+          </h4>
+        </div>
+        
+        <div className="space-y-3">
+          {displayedComments.map((comment, index) => (
+            <div key={comment.comment_id || index} className={`p-4 bg-white border ${borderColorMap[sentimentType]} rounded-lg shadow-sm hover:shadow-md transition-shadow`}>
+              <p className="text-sm text-gray-800 mb-3 leading-relaxed">{comment.text}</p>
+              <div className="flex justify-between items-center text-xs text-gray-500">
+                <div className="flex items-center space-x-4">
+                  <span>By: <span className="font-medium">{comment.author}</span></span>
+                  {comment.like_count > 0 && (
+                    <span className="flex items-center">
+                      <ThumbsUp className="w-3 h-3 mr-1" />
+                      {formatNumber(comment.like_count)}
+                    </span>
+                  )}
+                  {comment.published_at && (
+                    <span>{formatRelativeTime(comment.published_at)}</span>
+                  )}
+                </div>
+                {comment.comment_id && (
+                  <a
+                    href={`https://www.youtube.com/watch?v=${videoId}&lc=${comment.comment_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-youtube-red hover:underline flex items-center"
+                  >
+                    View <ExternalLink className="w-3 h-3 ml-1" />
+                  </a>
+                )}
+              </div>
+              {comment.toxicity_score && (
+                <div className="mt-2 flex items-center text-xs">
+                  <span className="text-red-600">Toxicity: {(comment.toxicity_score * 100).toFixed(1)}%</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {totalPages > 1 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={onPageChange}
+            totalItems={comments.length}
+            itemsPerPage={commentsPerPage}
+          />
+        )}
+      </div>
+    );
+  };
+
+  // Keywords List with Pagination
+  const PaginatedKeywordsList = ({ keywords }) => {
+    if (!keywords || keywords.length === 0) return null;
+
+    const totalPages = getTotalPages(keywords, keywordsPerPage);
+    const displayedKeywords = getPaginatedItems(keywords, keywordsPage, keywordsPerPage);
+
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h5 className="text-sm font-medium text-gray-900">
+            Top Keywords ({formatNumber(keywords.length)})
+          </h5>
+        </div>
+        
+        <div className="space-y-3">
+          {displayedKeywords.map((keyword, index) => (
+            <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <span className="font-medium text-gray-900">{keyword.keyword}</span>
+                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                  {keyword.ngram_size === 1 ? 'Word' : 'Phrase'}
+                </span>
+              </div>
+              <div className="text-right text-xs text-gray-500">
+                <div>Relevance: {keyword.relevance_score.toFixed(2)}</div>
+                <div>Count: {keyword.occurrence_count}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {totalPages > 1 && (
+          <Pagination
+            currentPage={keywordsPage}
+            totalPages={totalPages}
+            onPageChange={setKeywordsPage}
+            totalItems={keywords.length}
+            itemsPerPage={keywordsPerPage}
+          />
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="card">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Comment Analysis</h3>
+
+        {/* Summary Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="text-center p-4 bg-gray-50 rounded-lg">
+            <MessageSquare className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+            <p className="text-2xl font-bold text-gray-900">{formatNumber(analysis?.total_comments)}</p>
+            <p className="text-sm text-gray-600">Total Comments</p>
+          </div>
+
+          <div className="text-center p-4 bg-gray-50 rounded-lg">
+            <Eye className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+            <p className="text-2xl font-bold text-gray-900">{formatNumber(analysis?.analyzed_comments)}</p>
+            <p className="text-sm text-gray-600">Analyzed</p>
+          </div>
+
+          <div className="text-center p-4 bg-gray-50 rounded-lg">
+            <TrendingUp className="w-8 h-8 text-green-600 mx-auto mb-2" />
+            <p className="text-2xl font-bold text-gray-900">
+              {((analysis?.analyzed_comments ?? 0) / Math.max(1, analysis?.total_comments ?? 1) * 100).toFixed(1)}%
+            </p>
+            <p className="text-sm text-gray-600">Coverage</p>
+          </div>
+
+          <div className="text-center p-4 bg-gray-50 rounded-lg">
+            <AlertTriangle className="w-8 h-8 text-red-600 mx-auto mb-2" />
+            <p className="text-2xl font-bold text-gray-900">
+              {analysis?.toxicity_analysis?.toxic_comments_count ?? 0}
+            </p>
+            <p className="text-sm text-gray-600">Toxic Comments</p>
+          </div>
+        </div>
+
+        {/* Sentiment Analysis Charts */}
+        {analysis.sentiment_scores && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-md font-medium text-gray-900">Sentiment Distribution</h4>
+                <button onClick={onExportSentiment} className="btn-secondary text-xs">
+                  <Download className="w-3 h-3 mr-1" />
+                  Export
+                </button>
+              </div>
+              <SentimentPieChart
+                data={analysis.sentiment_distribution}
+                title=""
+              />
+            </div>
+
+            <div>
+              <h4 className="text-md font-medium text-gray-900 mb-4">Sentiment Metrics</h4>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <Smile className="w-5 h-5 text-green-600" />
+                    <span className="text-sm font-medium text-gray-900">Positive</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-bold text-green-600">
+                      {formatNumber(analysis.sentiment_distribution?.positive ?? 0)}
+                    </span>
+                    <p className="text-xs text-gray-500">
+                      {((analysis.sentiment_distribution?.positive ?? 0) / Math.max(1, analysis?.analyzed_comments ?? 1) * 100).toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <Meh className="w-5 h-5 text-gray-600" />
+                    <span className="text-sm font-medium text-gray-900">Neutral</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-bold text-gray-600">
+                      {formatNumber(analysis.sentiment_distribution?.neutral ?? 0)}
+                    </span>
+                    <p className="text-xs text-gray-500">
+                      {((analysis.sentiment_distribution?.neutral ?? 0) / Math.max(1, analysis?.analyzed_comments ?? 1) * 100).toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <Frown className="w-5 h-5 text-red-600" />
+                    <span className="text-sm font-medium text-gray-900">Negative</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-bold text-red-600">
+                      {formatNumber(analysis.sentiment_distribution?.negative ?? 0)}
+                    </span>
+                    <p className="text-xs text-gray-500">
+                      {((analysis.sentiment_distribution?.negative ?? 0) / Math.max(1, analysis?.analyzed_comments ?? 1) * 100).toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab Navigation */}
+        <div className="border-b border-gray-200 mb-6">
+          <nav className="-mb-px flex space-x-8">
+            {[
+              { id: 'sentiment', label: 'Sentiment Comments', count: analysis?.analyzed_comments },
+              { id: 'toxicity', label: 'Toxicity Analysis', count: analysis?.toxicity_analysis?.toxic_comments_count },
+              { id: 'keywords', label: 'Keywords', count: analysis?.keywords?.length },
+              { id: 'all', label: 'All Comments', count: allComments?.length }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === tab.id
+                    ? 'border-youtube-red text-youtube-red'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {tab.label}
+                {tab.count > 0 && (
+                  <span className="ml-2 bg-gray-100 text-gray-600 py-0.5 px-2 rounded-full text-xs">
+                    {formatNumber(tab.count)}
+                  </span>
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Tab Content */}
+        <div className="min-h-[400px]">
+          {activeTab === 'sentiment' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <PaginatedCommentList
+                title="Positive Comments"
+                comments={topPositiveComments}
+                sentimentType="positive"
+                videoId={videoId}
+                currentPage={positiveCommentsPage}
+                onPageChange={setPositiveCommentsPage}
+                totalItems={topPositiveComments.length}
+              />
+              <PaginatedCommentList
+                title="Neutral Comments"
+                comments={topNeutralComments}
+                sentimentType="neutral"
+                videoId={videoId}
+                currentPage={neutralCommentsPage}
+                onPageChange={setNeutralCommentsPage}
+                totalItems={topNeutralComments.length}
+              />
+              <PaginatedCommentList
+                title="Negative Comments"
+                comments={topNegativeComments}
+                sentimentType="negative"
+                videoId={videoId}
+                currentPage={negativeCommentsPage}
+                onPageChange={setNegativeCommentsPage}
+                totalItems={topNegativeComments.length}
+              />
+            </div>
+          )}
+
+          {activeTab === 'toxicity' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-md font-medium text-gray-900">Toxicity Overview</h4>
+                  <button onClick={onExportToxicity} className="btn-secondary text-xs">
+                    <Download className="w-3 h-3 mr-1" />
+                    Export
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-red-50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <AlertTriangle className="w-5 h-5 text-red-600" />
+                        <span className="text-lg font-bold text-red-600">
+                          {(analysis.toxicity_analysis?.toxicity_rate ?? 0).toFixed(1)}%
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600">Toxicity Rate</p>
+                    </div>
+
+                    <div className="p-4 bg-blue-50 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <TrendingUp className="w-5 h-5 text-blue-600" />
+                        <span className={`text-lg font-bold ${
+                          (analysis.toxicity_analysis?.community_health_score?.score ?? 0) >= 80 ? 'text-green-600' :
+                          (analysis.toxicity_analysis?.community_health_score?.score ?? 0) >= 60 ? 'text-yellow-600' :
+                          'text-red-600'
+                        }`}>
+                          {(analysis.toxicity_analysis?.community_health_score?.score ?? 0).toFixed(0)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600">Health Score</p>
+                    </div>
+                  </div>
+
+                  {/* Toxicity Levels */}
+                  {analysis.toxicity_analysis?.toxicity_levels && (
+                    <div className="space-y-2">
+                      <h5 className="text-sm font-medium text-gray-900">Toxicity Levels</h5>
+                      {Object.entries(analysis.toxicity_analysis.toxicity_levels).map(([level, count]) => (
+                        <div key={level} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                          <span className="text-sm capitalize text-gray-700">{level} Toxicity</span>
+                          <span className="text-sm font-medium text-gray-900">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Toxicity Types */}
+                  {analysis.toxicity_analysis?.toxicity_type_distribution && (
+                    <div className="space-y-2">
+                      <h5 className="text-sm font-medium text-gray-900">Toxicity Types</h5>
+                      {Object.entries(analysis.toxicity_analysis.toxicity_type_distribution).map(([type, count]) => (
+                        <div key={type} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                          <span className="text-sm capitalize text-gray-700">{type.replace('_', ' ')}</span>
+                          <span className="text-sm font-medium text-gray-900">{count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <PaginatedCommentList
+                  title="Most Toxic Comments"
+                  comments={highToxicComments}
+                  sentimentType="toxic"
+                  videoId={videoId}
+                  currentPage={toxicCommentsPage}
+                  onPageChange={setToxicCommentsPage}
+                  totalItems={highToxicComments.length}
+                />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'keywords' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div>
+                <h4 className="text-md font-medium text-gray-900 mb-4">Keywords Word Cloud</h4>
+                {analysis.keywords && analysis.keywords.length > 0 ? (
+                  <KeywordWordCloud
+                    keywords={analysis.keywords}
+                    title=""
+                    height={300}
+                  />
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Hash className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>No keywords found</p>
+                  </div>
+                )}
+              </div>
+              <div>
+                <PaginatedKeywordsList keywords={analysis.keywords} />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'all' && (
+            <div>
+              <PaginatedCommentList
+                title="All Comments"
+                comments={allComments}
+                sentimentType="neutral"
+                videoId={videoId}
+                currentPage={allCommentsPage}
+                onPageChange={setAllCommentsPage}
+                totalItems={allComments.length}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default VideoPage

@@ -6,12 +6,13 @@ pandas==2.2.0
 numpy==1.26.3
 vaderSentiment==3.3.2
 keybert==0.8.4
-transformers==4.37.0
-torch==2.1.2
+transformers==4.43.4
+torch==2.4.1
+safetensors==0.4.4
 scikit-learn==1.4.0
 python-multipart==0.0.6
 pydantic==2.5.3
 python-dateutil==2.8.2
 requests==2.31.0
 
-youtube-transcript-api
+youtube-transcript-api==0.6.2

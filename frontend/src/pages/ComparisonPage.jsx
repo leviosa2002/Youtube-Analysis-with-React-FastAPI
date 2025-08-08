@@ -1,121 +1,112 @@
-import React, { useState } from 'react'
-import { useForm, useFieldArray } from 'react-hook-form'
+import React, { useState } from 'react';
+import { useForm, useFieldArray } from 'react-hook-form';
 import {
   GitCompare,
   Plus,
   Minus,
-  Search,
   Download,
-  RefreshCw,
   Youtube,
   Video,
-  BarChart3,
-  TrendingUp,
-  Users,
-  Eye,
-  PlayCircle,
-  ThumbsUp,
-  MessageSquare,
-  ExternalLink,
-  X
-} from 'lucide-react'
+  ExternalLink
+} from 'lucide-react';
 
-import { comparisonAPI } from '../services/api'
-import { extractYouTubeId, formatNumber, formatRelativeTime, truncateText } from '../services/utils'
-import { exportComparisonData } from '../services/csvExport'
+import { comparisonAPI } from '../services/api';
+import { extractYouTubeId, formatNumber, formatRelativeTime, truncateText } from '../services/utils';
+import { exportComparisonData } from '../services/csvExport';
 
-import LoadingSpinner, { DataLoadingSpinner } from '../components/common/LoadingSpinner'
-import ErrorMessage from '../components/common/ErrorMessage'
-// Removed: import ComparisonTable from '../../components/charts/ComparisonTable' // This import is now removed
-import { ChannelComparisonRadar, VideoPerformanceRadar } from '../components/charts/RadarChart'
+import LoadingSpinner, { DataLoadingSpinner } from '../components/common/LoadingSpinner';
+import ErrorMessage from '../components/common/ErrorMessage';
+import ComparisonTable from '../components/charts/ComparisonTable';
+import ComparisonBarChart from '../components/charts/ComparisonBarChart'; // Re-added and added this import
+import { ChannelComparisonRadar, VideoPerformanceRadar } from '../components/charts/RadarChart';
 
 const ComparisonPage = () => {
-  const [comparisonType, setComparisonType] = useState('channels') // 'channels' or 'videos'
-  const [comparisonData, setComparisonData] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [exportLoading, setExportLoading] = useState(false)
+  const [comparisonType, setComparisonType] = useState('channels'); // 'channels' or 'videos'
+  const [comparisonData, setComparisonData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [exportLoading, setExportLoading] = useState(false);
 
   const { register, control, handleSubmit, formState: { errors }, reset } = useForm({
     defaultValues: {
       items: [{ id: '' }, { id: '' }] // Start with 2 empty items
     }
-  })
+  });
 
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'items'
-  })
+  });
 
   const handleCompare = async (formData) => {
     const ids = formData.items
       .map(item => extractYouTubeId(item.id.trim(), comparisonType === 'channels' ? 'channel' : 'video'))
-      .filter(id => id) // Remove empty/invalid IDs
+      .filter(id => id); // Remove empty/invalid IDs
 
     if (ids.length < 2) {
-      setError('Please provide at least 2 valid IDs for comparison')
-      return
+      setError('Please provide at least 2 valid IDs for comparison');
+      return;
     }
 
     if (ids.length > 5) {
-      setError('Maximum 5 items can be compared at once')
-      return
+      setError('Maximum 5 items can be compared at once');
+      return;
     }
 
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
 
     try {
-      let result
+      let result;
       if (comparisonType === 'channels') {
-        result = await comparisonAPI.compareChannels(ids)
+        result = await comparisonAPI.compareChannels(ids);
       } else {
-        result = await comparisonAPI.compareVideos(ids)
+        result = await comparisonAPI.compareVideos(ids);
       }
 
-      setComparisonData(result)
+      setComparisonData(result);
     } catch (err) {
-      setError(err.response?.data?.detail || 'Comparison failed. Please try again.')
+      setError(err.response?.data?.detail || 'Comparison failed. Please try again.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleExport = async () => {
-    if (!comparisonData) return
+    if (!comparisonData) return;
 
-    setExportLoading(true)
+    setExportLoading(true);
     try {
       if (comparisonType === 'channels') {
-        exportComparisonData.channelComparison(comparisonData)
+        exportComparisonData.channelComparison(comparisonData);
       } else {
-        exportComparisonData.videoComparison(comparisonData)
+        exportComparisonData.videoComparison(comparisonData);
       }
     } catch (error) {
-      console.error('Export failed:', error)
+      console.error('Export failed:', error);
     } finally {
-      setExportLoading(false)
+      setExportLoading(false);
     }
-  }
+  };
 
   const addItem = () => {
     if (fields.length < 5) {
-      append({ id: '' })
+      append({ id: '' });
     }
-  }
+  };
 
   const removeItem = (index) => {
     if (fields.length > 2) {
-      remove(index)
+      remove(index);
     }
-  }
+  };
 
   const switchComparisonType = (type) => {
-    setComparisonType(type)
-    setComparisonData(null)
-    setError(null)
-    reset({ items: [{ id: '' }, { id: '' }] })
-  }
+    setComparisonType(type);
+    setComparisonData(null);
+    setError(null);
+    reset({ items: [{ id: '' }, { id: '' }] });
+  };
 
   return (
     <div className="space-y-6">
@@ -191,9 +182,9 @@ const ComparisonPage = () => {
                       {...register(`items.${index}.id`, {
                         required: index < 2 ? `${comparisonType === 'channels' ? 'Channel' : 'Video'} ID is required` : false,
                         validate: (value) => {
-                          if (!value.trim() && index >= 2) return true // Optional for items beyond first 2
-                              const extracted = extractYouTubeId(value.trim(), comparisonType === 'channels' ? 'channel' : 'video')
-                          return extracted ? true : 'Please enter a valid YouTube video ID or URL';
+                          if (!value.trim() && index >= 2) return true; // Optional for items beyond first 2
+                          const extracted = extractYouTubeId(value.trim(), comparisonType === 'channels' ? 'channel' : 'video');
+                          return extracted ? true : 'Please enter a valid YouTube ID or URL';
                         }
                       })}
                       type="text"
@@ -275,17 +266,47 @@ const ComparisonPage = () => {
       <SampleDataSection
         comparisonType={comparisonType}
         onLoadSample={(sampleIds) => {
-          const newItems = sampleIds.map(id => ({ id }))
-          reset({ items: newItems })
+          const newItems = sampleIds.map(id => ({ id }));
+          reset({ items: newItems });
         }}
       />
     </div>
-  )
-}
+  );
+};
 
 // Channel Comparison Results Component
 const ChannelComparisonResults = ({ data }) => (
   <div className="space-y-6">
+    {/* Bar Charts for key metrics */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <ComparisonBarChart
+        data={data.channels}
+        metricKey="subscriber_count"
+        title="Subscriber Comparison"
+      />
+      <ComparisonBarChart
+        data={data.channels}
+        metricKey="view_count"
+        title="Total Views Comparison"
+      />
+      <ComparisonBarChart
+        data={data.channels}
+        metricKey="video_count"
+        title="Video Count Comparison"
+      />
+      <ComparisonBarChart
+        data={data.channels}
+        metricKey="avg_views_per_video"
+        title="Average Views per Video"
+      />
+    </div>
+    
+    {/* Radar Chart for Overall Performance */}
+    <ChannelComparisonRadar
+      channels={data.channels}
+      title="Overall Performance Comparison"
+    />
+
     {/* Overview Table */}
     <div className="card">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">Channel Overview</h3>
@@ -300,6 +321,7 @@ const ChannelComparisonResults = ({ data }) => (
               <th className="table-header-cell">Avg Views/Video</th>
               <th className="table-header-cell">Created</th>
               <th className="table-header-cell">Country</th>
+              <th className="table-header-cell">Description</th>
             </tr>
           </thead>
           <tbody className="table-body">
@@ -320,7 +342,7 @@ const ChannelComparisonResults = ({ data }) => (
                           {truncateText(channel.title, 25)}
                         </span>
                         <a
-                          href={`http://googleusercontent.com/youtube.com/channel/${channel.id}`} /* Corrected YouTube channel URL */
+                          href={`https://www.youtube.com/channel/${channel.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-youtube-red hover:text-youtube-darkRed"
@@ -342,6 +364,11 @@ const ChannelComparisonResults = ({ data }) => (
                 </td>
                 <td className="table-cell">{formatRelativeTime(channel.published_at)}</td>
                 <td className="table-cell">{channel.country || 'N/A'}</td>
+                <td className="table-cell">
+                  <p className="text-xs text-gray-500">
+                    {truncateText(channel.description, 100)}
+                  </p>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -350,42 +377,13 @@ const ChannelComparisonResults = ({ data }) => (
     </div>
 
     {/* Removed: Comparison Tables */}
-    {/* Removed: <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <ComparisonTable
-        data={data.channels}
-        metrics={[
-          { key: 'subscriber_count', header: 'Subscribers', formatter: formatNumber }
-        ]}
-        title="Subscriber Comparison"
-      />
-      <ComparisonTable
-        data={data.channels}
-        metrics={[
-          { key: 'view_count', header: 'Total Views', formatter: formatNumber }
-        ]}
-        title="Total Views Comparison"
-      />
-      <ComparisonTable
-        data={data.channels}
-        metrics={[
-          { key: 'video_count', header: 'Video Count', formatter: formatNumber }
-        ]}
-        title="Video Count Comparison"
-      />
-      <ComparisonTable
-        data={data.channels}
-        metrics={[
-          { key: 'avg_views_per_video', header: 'Avg Views/Video', formatter: formatNumber }
-        ]}
-        title="Average Views per Video"
-      />
+    {/* These were commented out in your original code. You can choose to use the new bar charts instead, or uncomment these to show both.
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <ComparisonTable data={data.channels} metrics={[{ key: 'subscriber_count', header: 'Subscribers', formatter: formatNumber }]} title="Subscriber Comparison" />
+      <ComparisonTable data={data.channels} metrics={[{ key: 'view_count', header: 'Total Views', formatter: formatNumber }]} title="Total Views Comparison" />
+      <ComparisonTable data={data.channels} metrics={[{ key: 'video_count', header: 'Video Count', formatter: formatNumber }]} title="Video Count Comparison" />
+      <ComparisonTable data={data.channels} metrics={[{ key: 'avg_views_per_video', header: 'Avg Views/Video', formatter: formatNumber }]} title="Average Views per Video" />
     </div> */}
-
-    {/* Radar Chart */}
-    <ChannelComparisonRadar
-      channels={data.channels}
-      title="Overall Performance Comparison"
-    />
 
     {/* Rankings */}
     {data.rankings && (
@@ -397,11 +395,76 @@ const ChannelComparisonResults = ({ data }) => (
       <ComparisonInsights insights={data.insights} />
     )}
   </div>
-)
+);
 
 // Video Comparison Results Component
 const VideoComparisonResults = ({ data }) => (
   <div className="space-y-6">
+    
+    {/* NEW: Detailed Performance Metrics */}
+    <h3 className="text-xl font-bold text-gray-900">Performance Comparison</h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <ComparisonBarChart
+        data={data.videos}
+        metricKey="view_count"
+        title="Views Comparison"
+        comparisonType="videos"
+      />
+      <ComparisonBarChart
+        data={data.videos}
+        metricKey="like_count"
+        title="Likes Comparison"
+        comparisonType="videos"
+      />
+      <ComparisonBarChart
+        data={data.videos}
+        metricKey="comment_count"
+        title="Comments Comparison"
+        comparisonType="videos"
+      />
+      
+      {/* Bar Chart for Engagement Rate */}
+      {data.comparison_metrics?.engagement_rates && (
+        <ComparisonBarChart
+          data={data.videos.map((video, index) => ({
+            ...video,
+            engagement_rate: data.comparison_metrics.engagement_rates[index]
+          }))}
+          metricKey="engagement_rate"
+          title="Engagement Rate Comparison"
+          comparisonType="videos"
+        />
+      )}
+
+      {/* Bar Chart for Video Duration */}
+      {data.comparison_metrics?.duration_seconds && (
+        <ComparisonBarChart
+          data={data.videos.map((video, index) => ({
+            ...video,
+            duration_seconds: data.comparison_metrics.duration_seconds[index]
+          }))}
+          metricKey="duration_seconds"
+          title="Video Duration Comparison"
+          comparisonType="videos"
+        />
+      )}
+      
+      {/* Bar Chart for Views per Hour */}
+      {data.engagement_comparison?.views_per_hour && (
+        <ComparisonBarChart
+          data={data.videos.map((video, index) => ({
+            ...video,
+            views_per_hour: data.engagement_comparison.views_per_hour[index]
+          }))}
+          metricKey="views_per_hour"
+          title="Views Per Hour Comparison"
+          comparisonType="videos"
+        />
+      )}
+    </div>
+
+    <hr />
+
     {/* Overview Table */}
     <div className="card">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">Video Overview</h3>
@@ -436,7 +499,7 @@ const VideoComparisonResults = ({ data }) => (
                           {truncateText(video.title, 30)}
                         </span>
                         <a
-                          href={`http://googleusercontent.com/youtube.com/watch?v=${video.id}`} /* Corrected YouTube video URL */
+                          href={`https://www.youtube.com/watch?v=${video.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-youtube-red hover:text-youtube-darkRed"
@@ -459,61 +522,15 @@ const VideoComparisonResults = ({ data }) => (
         </table>
       </div>
     </div>
-
-    {/* Removed: Comparison Tables */}
-    {/* Removed: <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <ComparisonTable
-        data={data.videos}
-        metrics={[
-          { key: 'view_count', header: 'Views', formatter: formatNumber }
-        ]}
-        title="Views Comparison"
-      />
-      <ComparisonTable
-        data={data.videos}
-        metrics={[
-          { key: 'like_count', header: 'Likes', formatter: formatNumber }
-        ]}
-        title="Likes Comparison"
-      />
-      <ComparisonTable
-        data={data.videos}
-        metrics={[
-          { key: 'comment_count', header: 'Comments', formatter: formatNumber }
-        ]}
-        title="Comments Comparison"
-      />
-      {data.comparison_metrics?.engagement_rates && (
-        <ComparisonTable
-          data={data.videos.map((video, index) => ({
-            ...video,
-            engagement_rate: data.comparison_metrics.engagement_rates[index]
-          }))}
-          metrics={[
-            { key: 'engagement_rate', header: 'Engagement Rate (%)', formatter: (value) => `${Number(value).toFixed(2)}%` }
-          ]}
-          title="Engagement Rate Comparison"
-        />
-      )}
-    </div> */}
-
-    {/* Radar Chart */}
-    <VideoPerformanceRadar
-      videos={data.videos}
-      title="Performance Comparison"
-    />
-
-    {/* Engagement Analysis */}
-    {data.engagement_comparison && (
-      <EngagementComparison data={data.engagement_comparison} videos={data.videos} />
-    )}
+    
+    <hr />
 
     {/* Insights */}
     {data.insights && data.insights.length > 0 && (
       <ComparisonInsights insights={data.insights} />
     )}
   </div>
-)
+);
 
 // Comparison Rankings Component
 const ComparisonRankings = ({ rankings, type }) => (
@@ -550,7 +567,7 @@ const ComparisonRankings = ({ rankings, type }) => (
       ))}
     </div>
   </div>
-)
+);
 
 // Engagement Comparison Component
 const EngagementComparison = ({ data, videos }) => (
@@ -606,7 +623,7 @@ const EngagementComparison = ({ data, videos }) => (
       </div>
     </div>
   </div>
-)
+);
 
 // Comparison Insights Component
 const ComparisonInsights = ({ insights }) => (
@@ -621,21 +638,21 @@ const ComparisonInsights = ({ insights }) => (
       ))}
     </div>
   </div>
-)
+);
 
 // Sample Data Section Component
 const SampleDataSection = ({ comparisonType, onLoadSample }) => {
   const sampleChannels = [
     { name: 'MrBeast vs PewDiePie', ids: ['UCX6OQ3DkcsbYNE6H8uQQuVA', 'UC-lHJZR3Gqxm24_Vd_AJ5Yw'] },
     { name: 'Top Tech Channels', ids: ['UCBJycsmduvYEL83R_U4JriQ', 'UC6nSFpj9HTCZ5t-N3Rm3-HA', 'UCOmcA3f_RrH6b9NmcNa4tdg'] }
-  ]
+  ];
 
   const sampleVideos = [
     { name: 'Popular Music Videos', ids: ['dQw4w9WgXcQ', 'kJQP7kiw5Fk', 'JGwWNGJdvx8'] },
     { name: 'Viral TikTok Hits', ids: ['OvEuZ3mNSY', 'fNVV_PjeIRQ', 'M7FIvfx5J10'] }
-  ]
+  ];
 
-  const samples = comparisonType === 'channels' ? sampleChannels : sampleVideos
+  const samples = comparisonType === 'channels' ? sampleChannels : sampleVideos;
 
   return (
     <div className="card">
@@ -674,7 +691,7 @@ const SampleDataSection = ({ comparisonType, onLoadSample }) => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default ComparisonPage
+export default ComparisonPage;

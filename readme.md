@@ -75,6 +75,8 @@ copy .env.example .env
 
 # Run the FastAPI server
 python run.py
+or
+uvicorn app.main:app
 ```
 
 The backend will be available at `http://localhost:8000`
