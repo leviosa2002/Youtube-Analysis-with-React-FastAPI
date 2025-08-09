@@ -275,24 +275,32 @@ const ChannelPage = () => {
           <ChannelMetrics channel={channelData.channel_info} />
 
           {/* Charts and Analysis */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Growth Charts (Modified to be side-by-side) */}
-            {channelData.growth_data && channelData.growth_data.length > 0 && (
-              <>
-                <GrowthLineChart
-                  data={channelData.growth_data}
-                  title="Cumulative Views Over Time"
-                  dataKey="cumulative_views"
-                  onExport={() => handleExportSection('growth')}
-                />
-                <GrowthLineChart
-                  data={channelData.growth_data}
-                  title="Video Count Over Time"
-                  dataKey="video_count"
-                  onExport={() => handleExportSection('growth')}
-                />
-              </>
-            )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Growth Charts (Modified to be side-by-side) */}
+        {channelData.growth_data && channelData.growth_data.length > 0 && (
+          <>
+            {/* Chart for Views only */}
+            <GrowthLineChart
+              data={channelData.growth_data.map(item => ({ 
+                date: item.date, 
+                cumulative_views: item.cumulative_views 
+              }))}
+              title="Cumulative Views Over Time"
+              dataKey="cumulative_views"
+              onExport={() => handleExportSection('growth')}
+            />
+            {/* Chart for Video Count only */}
+            <GrowthLineChart
+              data={channelData.growth_data.map(item => ({ 
+                date: item.date, 
+                video_count: item.video_count 
+              }))}
+              title="Video Count Over Time"
+              dataKey="video_count"
+              onExport={() => handleExportSection('growth')}
+            />
+          </>
+        )}
 
             {/* Upload Frequency Heatmap & Details */}
             {channelData.upload_frequency && channelData.upload_frequency.heatmap_data.length > 0 && (

@@ -3,40 +3,29 @@ Channel analysis API routes
 """
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, Query
 from fastapi.responses import FileResponse
-from typing import Optional,Dict,Any
+from typing import Optional, Dict, Any
 from app.services.youtube_service import YouTubeService 
 from app.utils.validators import RequestValidators
 from dataclasses import asdict
-
 import os
 import logging
 
-from app.services.youtube_service import YouTubeService
 from app.services.keyword_service import KeywordService
 from app.services.export_service import ExportService
-from app.models.channel import ChannelProcessor,VideoData,KeywordData
-from app.models.response_models import ChannelAnalytics, ErrorResponse, ExportResponse
-from app.utils.validators import RequestValidators
-from app.utils.session_storage import session_storage
+from app.models.channel import ChannelProcessor, VideoData, KeywordData
+from app.models.response_models import ChannelAnalytics
 from app.utils.data_processor import DataProcessor
+from app.utils.session_storage import session_storage
 
 from app.dependencies import (
     get_youtube_service,
     get_sentiment_service,
-    get_keyword_service,  # <--- THIS IS THE MISSING IMPORT!
+    get_keyword_service,
     get_toxicity_service
 )
 
 router = APIRouter()
-
-# youtube_service = YouTubeService()
-
-# Dependencies
-# def get_youtube_service():
-#     return YouTubeService()
-
-# def get_keyword_service():
-#     return KeywordService()
+logger = logging.getLogger(__name__)
 
 def get_export_service():
     return ExportService()
@@ -86,7 +75,6 @@ async def analyze_channel(
                 detail=f"Channel not found: {channel_id}"
             )
 
-        # Convert to dict for response (already doing this for channel_info, which is good)
         channel_info_dict = {
             'id': channel_info.id,
             'title': channel_info.title,
@@ -100,16 +88,14 @@ async def analyze_channel(
             'thumbnail_url': channel_info.thumbnail_url
         }
 
-        # Initialize response data
-        response_data: Dict[str, Any] = { # Explicitly type response_data as Dict[str, Any] for clarity
+        response_data: Dict[str, Any] = {
             'channel_info': channel_info_dict,
             'growth_data': [],
-            'upload_frequency': {}, # Initialize as empty dict instead of a nested one, as it will be assigned an object then converted
+            'upload_frequency': {},
             'top_keywords': [],
             'recent_videos': []
         }
 
-        # Fetch and analyze videos if requested
         if request_data.include_videos:
             videos = youtube_service.get_channel_videos(
                 request_data.channel_id,
@@ -140,86 +126,53 @@ async def analyze_channel(
 
                 response_data['recent_videos'] = videos_dict
 
-                # --- START: Object to Dictionary Conversion ---
-
-                # Calculate growth trends and convert to list of dictionaries
                 growth_trends_objects = ChannelProcessor.calculate_growth_trends(videos)
                 response_data['growth_data'] = [
                     (g.model_dump() if hasattr(g, 'model_dump') else asdict(g))
                     for g in growth_trends_objects
                 ]
 
-                # Analyze upload frequency and convert to dictionary
                 upload_frequency_object = ChannelProcessor.analyze_upload_frequency(videos)
                 response_data['upload_frequency'] = (
                     upload_frequency_object.model_dump() if hasattr(upload_frequency_object, 'model_dump') else asdict(upload_frequency_object)
                 )
 
-                # Keyword Extraction and Normalization
                 if include_keywords:
                     all_keywords_combined = []
 
-                    # 1. Keywords from youtube_service (already KeywordData objects)
                     youtube_service_keywords = youtube_service.extract_and_rank_keywords(
                         videos,
                         channel_info.description if channel_info.description else ""
                     )
-                    # Convert KeywordData objects to dicts here
-                    all_keywords_combined.extend([
-                        (k.model_dump() if hasattr(k, 'model_dump') else asdict(k))
-                        for k in youtube_service_keywords
-                    ])
-
-                    # 2. Keywords from ChannelProcessor (tags) - also KeywordData objects
                     channel_processor_keywords = ChannelProcessor.extract_top_keywords(videos, channel_info.description)
-                    # Convert KeywordData objects to dicts here
-                    all_keywords_combined.extend([
-                        (k.model_dump() if hasattr(k, 'model_dump') else asdict(k))
-                        for k in channel_processor_keywords
-                    ])
 
-                    # 3. Keywords from KeyBERT (these are already dictionaries, but we might want to normalize them)
+                    for k in youtube_service_keywords + channel_processor_keywords:
+                        all_keywords_combined.append({
+                            'keyword': k.keyword,
+                            'count': k.count,
+                            'relevance_score': 1.0,
+                            'type': k.type
+                        })
+                    
                     video_titles = [video.title for video in videos]
                     keybert_extracted_keywords = keyword_service.extract_trending_keywords(video_titles)
 
-                    # Normalize KeyBERT keywords to ensure 'count' and 'relevance_score' keys exist for sorting
-                    normalized_keybert_keywords = []
-                    for kw_dict in keybert_extracted_keywords:
-                        normalized_kw = {
-                            'keyword': kw_dict.get('keyword'),
-                            'count': kw_dict.get('occurrence_count', 1), # Use occurrence_count if present, else default to 1
-                            'relevance_score': kw_dict.get('relevance_score', 0.0),
-                            'type': kw_dict.get('type', 'trending') # Retain original type or default
-                        }
-                        normalized_keybert_keywords.append(normalized_kw)
+                    all_keywords_combined.extend(keybert_extracted_keywords)
 
-                    all_keywords_combined.extend(normalized_keybert_keywords)
-
-
-                    # Combine and sort all keywords
-                    # Now all items in all_keywords_combined are guaranteed to be dictionaries
-                    # with 'count' and 'relevance_score' keys.
                     response_data['top_keywords'] = sorted(
                         all_keywords_combined,
-                        key=lambda x: x.get('count', 0) + x.get('relevance_score', 0.0),
+                        key=lambda x: (x.get('relevance_score', 0.0), x.get('count', 0)),
                         reverse=True
                     )[:30]
 
-                # --- END: Object to Dictionary Conversion ---
-
-        # Store in session (store dictionaries, not Pydantic objects)
         session_storage.store_data(session_id, f"channel_analysis_{channel_id}", response_data)
-
-        # Add session info to response
         response_data['session_id'] = session_id
-
         return response_data
 
     except HTTPException:
         raise
     except Exception as e:
-        # Log the full traceback for better debugging in production
-        logging.error(f"Error analyzing channel: {str(e)}", exc_info=True)
+        logger.error(f"Error analyzing channel: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Error analyzing channel: {str(e)}"
@@ -239,7 +192,6 @@ async def export_channel_analysis(
     - **session_id**: Session ID containing analysis data
     """
     try:
-        # Get data from session
         analysis_data = session_storage.get_data(session_id, f"channel_analysis_{channel_id}")
         if not analysis_data:
             raise HTTPException(
@@ -247,7 +199,6 @@ async def export_channel_analysis(
                 detail="Channel analysis data not found in session. Please run analysis first."
             )
         
-        # Export to CSV
         filename = export_service.export_channel_analysis(analysis_data)
         filepath = export_service.get_file_path(filename)
         
@@ -257,7 +208,6 @@ async def export_channel_analysis(
                 detail="Failed to create export file"
             )
         
-        # Schedule file cleanup after download
         background_tasks.add_task(export_service.cleanup_file, filename)
         
         return FileResponse(
@@ -288,17 +238,14 @@ async def get_channel_videos(
     - **max_results**: Maximum number of videos to fetch (1-50)
     """
     try:
-        # Validate channel ID
         if not DataProcessor.validate_youtube_id(channel_id, 'channel'):
             raise HTTPException(
                 status_code=400,
                 detail="Invalid channel ID format"
             )
         
-        # Validate max_results
         max_results = max(1, min(50, max_results))
         
-        # Fetch videos
         videos = youtube_service.get_channel_videos(channel_id, max_results)
         
         if not videos:
@@ -307,7 +254,6 @@ async def get_channel_videos(
                 detail="No videos found for this channel or channel does not exist"
             )
         
-        # Format response
         videos_response = []
         for video in videos:
             duration_info = DataProcessor.convert_youtube_duration(video.duration)
@@ -337,9 +283,7 @@ async def get_channel_videos(
             'channel_id': channel_id,
             'videos': videos_response,
             'total_videos': len(videos_response),
-            'fetched_at': DataProcessor.parse_youtube_date(
-                videos[0].published_at.isoformat() if videos else None
-            )
+            'fetched_at': videos[0].published_at.isoformat() if videos and videos[0].published_at else None
         }
         
     except HTTPException:
@@ -362,7 +306,6 @@ async def get_channel_growth_data(
     - **session_id**: Optional session ID to fetch cached data
     """
     try:
-        # Try to get from session first
         if session_id:
             cached_data = session_storage.get_data(session_id, f"channel_analysis_{channel_id}")
             if cached_data and 'growth_data' in cached_data:

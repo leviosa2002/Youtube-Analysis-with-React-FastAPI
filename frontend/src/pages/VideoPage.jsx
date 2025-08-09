@@ -644,15 +644,15 @@ const CommentAnalysis = ({ analysis, videoId, onExportSentiment, onExportToxicit
   const [positiveCommentsPage, setPositiveCommentsPage] = useState(1);
   const [neutralCommentsPage, setNeutralCommentsPage] = useState(1);
   const [negativeCommentsPage, setNegativeCommentsPage] = useState(1);
-  const [allCommentsPage, setAllCommentsPage] = useState(1);
-  const [keywordsPage, setKeywordsPage] = useState(1);
+  const [keywordsPage, setKeywordsPage] = useState(1); 
   
   // Items per page
   const commentsPerPage = 10;
   const keywordsPerPage = 15;
 
   // State for showing different comment sections
-  const [activeTab, setActiveTab] = useState('sentiment');
+  const [activeTab, setActiveTab] = useState('all'); // Set default to 'all'
+  const [allCommentsPage, setAllCommentsPage] = useState(1);
 
   // Filter and prepare data
   const highToxicComments = analysis.toxicity_analysis?.most_toxic_comments?.filter(
@@ -665,6 +665,10 @@ const CommentAnalysis = ({ analysis, videoId, onExportSentiment, onExportToxicit
   
   // Filter for neutral comments
   const allComments = analysis.sentiment_analysis?.all_comments_sentiment || [];
+  const positiveComments = allComments.filter(comment => comment.sentiment_label === 'positive');
+  const neutralComments = allComments.filter(comment => comment.sentiment_label === 'neutral');
+  const negativeComments = allComments.filter(comment => comment.sentiment_label === 'negative');
+
   const topNeutralComments = allComments
     .filter(comment => comment.sentiment_label === 'neutral')
     .sort((a, b) => b.sentiment_score - a.sentiment_score);
@@ -697,7 +701,8 @@ const CommentAnalysis = ({ analysis, videoId, onExportSentiment, onExportToxicit
       positive: 'border-green-100',
       neutral: 'border-gray-100',
       negative: 'border-red-100',
-      toxic: 'border-red-200'
+      toxic: 'border-red-200',
+      all: 'border-gray-100'
     };
 
     if (!comments || comments.length === 0) {
@@ -770,7 +775,7 @@ const CommentAnalysis = ({ analysis, videoId, onExportSentiment, onExportToxicit
     );
   };
 
-  // Keywords List with Pagination
+// Keywords List with Pagination
   const PaginatedKeywordsList = ({ keywords }) => {
     if (!keywords || keywords.length === 0) return null;
 
@@ -871,6 +876,21 @@ const CommentAnalysis = ({ analysis, videoId, onExportSentiment, onExportToxicit
             <div>
               <h4 className="text-md font-medium text-gray-900 mb-4">Sentiment Metrics</h4>
               <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    <Star className="w-5 h-5 text-blue-600" />
+                    <span className="text-sm font-medium text-gray-900">Total Analyzed</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-bold text-blue-600">
+                      {formatNumber(analysis?.analyzed_comments ?? 0)}
+                    </span>
+                    <p className="text-xs text-gray-500">
+                      Comments Analyzed
+                    </p>
+                  </div>
+                </div>
+
                 <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <Smile className="w-5 h-5 text-green-600" />
@@ -922,66 +942,85 @@ const CommentAnalysis = ({ analysis, videoId, onExportSentiment, onExportToxicit
 
         {/* Tab Navigation */}
         <div className="border-b border-gray-200 mb-6">
-          <nav className="-mb-px flex space-x-8">
-            {[
-              { id: 'sentiment', label: 'Sentiment Comments', count: analysis?.analyzed_comments },
-              { id: 'toxicity', label: 'Toxicity Analysis', count: analysis?.toxicity_analysis?.toxic_comments_count },
-              { id: 'keywords', label: 'Keywords', count: analysis?.keywords?.length },
-              { id: 'all', label: 'All Comments', count: allComments?.length }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === tab.id
-                    ? 'border-youtube-red text-youtube-red'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                {tab.label}
-                {tab.count > 0 && (
-                  <span className="ml-2 bg-gray-100 text-gray-600 py-0.5 px-2 rounded-full text-xs">
-                    {formatNumber(tab.count)}
-                  </span>
-                )}
-              </button>
-            ))}
-          </nav>
+            <nav className="-mb-px flex space-x-8">
+                {[
+                    { id: 'all', label: 'All Comments', count: allComments.length, icon: MessageSquare },
+                    { id: 'positive', label: 'Positive', count: positiveComments.length, icon: Smile },
+                    { id: 'neutral', label: 'Neutral', count: neutralComments.length, icon: Meh },
+                    { id: 'negative', label: 'Negative', count: negativeComments.length, icon: Frown },
+                    { id: 'toxicity', label: 'Toxicity Analysis', count: analysis?.toxicity_analysis?.toxic_comments_count, icon: AlertTriangle },
+                    { id: 'keywords', label: 'Keywords', count: analysis?.keywords?.length, icon: Hash }
+                ].map((tab) => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${
+                            activeTab === tab.id
+                                ? 'border-youtube-red text-youtube-red'
+                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                    >
+                        <tab.icon className="w-4 h-4 mr-2" />
+                        {tab.label}
+                        {tab.count > 0 && (
+                            <span className="ml-2 bg-gray-100 text-gray-600 py-0.5 px-2 rounded-full text-xs">
+                                {formatNumber(tab.count)}
+                            </span>
+                        )}
+                    </button>
+                ))}
+            </nav>
         </div>
 
         {/* Tab Content */}
         <div className="min-h-[400px]">
-          {activeTab === 'sentiment' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <PaginatedCommentList
-                title="Positive Comments"
-                comments={topPositiveComments}
-                sentimentType="positive"
-                videoId={videoId}
-                currentPage={positiveCommentsPage}
-                onPageChange={setPositiveCommentsPage}
-                totalItems={topPositiveComments.length}
-              />
-              <PaginatedCommentList
-                title="Neutral Comments"
-                comments={topNeutralComments}
-                sentimentType="neutral"
-                videoId={videoId}
-                currentPage={neutralCommentsPage}
-                onPageChange={setNeutralCommentsPage}
-                totalItems={topNeutralComments.length}
-              />
-              <PaginatedCommentList
-                title="Negative Comments"
-                comments={topNegativeComments}
-                sentimentType="negative"
-                videoId={videoId}
-                currentPage={negativeCommentsPage}
-                onPageChange={setNegativeCommentsPage}
-                totalItems={topNegativeComments.length}
-              />
-            </div>
-          )}
+          {activeTab === 'all' && (
+        <PaginatedCommentList
+            title="All Comments"
+            comments={allComments}
+            sentimentType="all"
+            videoId={videoId}
+            currentPage={allCommentsPage}
+            onPageChange={setAllCommentsPage}
+            totalItems={allComments.length}
+        />
+    )}
+
+    {activeTab === 'positive' && (
+        <PaginatedCommentList
+            title="Positive Comments"
+            comments={positiveComments}
+            sentimentType="positive"
+            videoId={videoId}
+            currentPage={positiveCommentsPage}
+            onPageChange={setPositiveCommentsPage}
+            totalItems={positiveComments.length}
+        />
+    )}
+
+    {activeTab === 'neutral' && (
+        <PaginatedCommentList
+            title="Neutral Comments"
+            comments={neutralComments}
+            sentimentType="neutral"
+            videoId={videoId}
+            currentPage={neutralCommentsPage}
+            onPageChange={setNeutralCommentsPage}
+            totalItems={neutralComments.length}
+        />
+    )}
+
+    {activeTab === 'negative' && (
+        <PaginatedCommentList
+            title="Negative Comments"
+            comments={negativeComments}
+            sentimentType="negative"
+            videoId={videoId}
+            currentPage={negativeCommentsPage}
+            onPageChange={setNegativeCommentsPage}
+            totalItems={negativeComments.length}
+        />
+    )}
 
           {activeTab === 'toxicity' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1083,20 +1122,6 @@ const CommentAnalysis = ({ analysis, videoId, onExportSentiment, onExportToxicit
               <div>
                 <PaginatedKeywordsList keywords={analysis.keywords} />
               </div>
-            </div>
-          )}
-
-          {activeTab === 'all' && (
-            <div>
-              <PaginatedCommentList
-                title="All Comments"
-                comments={allComments}
-                sentimentType="neutral"
-                videoId={videoId}
-                currentPage={allCommentsPage}
-                onPageChange={setAllCommentsPage}
-                totalItems={allComments.length}
-              />
             </div>
           )}
         </div>
