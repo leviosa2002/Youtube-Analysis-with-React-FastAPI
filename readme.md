@@ -281,6 +281,7 @@ SESSION_TIMEOUT=3600
 # Backend with auto-reload
 cd backend
 python run.py
+or uvicorn app.main:app
 
 # Frontend with hot reload
 cd frontend
